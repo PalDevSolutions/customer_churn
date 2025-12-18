@@ -1,8 +1,6 @@
-# Customer Churn Prediction
+# 📊 Customer Churn Prediction
 
-This project focuses on analyzing customer behavior and building machine learning models to predict customer churn using Python and Jupyter Notebooks.
-
----
+This project builds an end-to-end machine learning pipeline to predict customer churn based on user demographics, transaction history, and usage behavior. It includes data preprocessing, feature engineering, and model-ready datasets, with a clean and reproducible project structure.
 
 ## 📁 Project Structure
 
@@ -10,34 +8,34 @@ This project focuses on analyzing customer behavior and building machine learnin
 customer_churn/
 │
 ├── data/
-│   └── raw/
-│       ├── members_v3.csv
-│       ├── transactions_v2.csv
-│       ├── user_logs_v2.csv
-│       ├── train_v2.csv
-│       └── sample_submission_v2.csv
+│   ├── raw/                    # Original datasets (CSV)
+│   │   ├── members_v3.csv
+│   │   ├── transactions_v2.csv
+│   │   ├── user_logs_v2.csv
+│   │   ├── train_v2.csv
+│   │   └── sample_submission_v2.csv
+│   │
+│   └── processed/              # Generated features
+│       └── train_features.parquet
 │
 ├── notebooks/
-│   └── test.ipynb
+│   ├── eda.ipynb              # Exploratory Data Analysis
+│   └── test.ipynb             # Experiments & testing
 │
+├── src/
+│   ├── utils.py               # Config & dataset loaders
+│   └── data/
+│       └── preprocess.py      # Feature engineering pipeline
+│
+├── config.json                # Centralized paths & filenames
+├── requirements.txt           # Python dependencies
 ├── README.md
-├── .gitignore
-└── requirements.txt
+└── .gitignore
 ```
 
----
-
-## ⚙️ Environment Setup (Virtual Environment)
+## ⚙️ Environment Setup
 
 ### 1️⃣ Create a Virtual Environment
-
-Make sure Python is installed:
-
-```bash
-python --version
-```
-
-Create the virtual environment inside the project directory:
 
 ```bash
 python -m venv venv
@@ -45,106 +43,155 @@ python -m venv venv
 
 ### 2️⃣ Activate the Virtual Environment
 
-**Windows (Git Bash / VS Code):**
+**Windows (Git Bash / VS Code)**
 
 ```bash
 source venv/Scripts/activate
 ```
 
-**Windows (CMD):**
+**Windows (CMD)**
 
-```bash
+```cmd
 venv\Scripts\activate
 ```
 
-**Windows (PowerShell):**
+**Windows (PowerShell)**
 
-```bash
+```powershell
 .\venv\Scripts\Activate.ps1
 ```
 
-Once activated, you should see:
+You should see:
 
 ```
 (venv)
 ```
 
----
-
 ## 📦 Install Dependencies
 
-Install all required libraries using:
+Install all required packages:
 
 ```bash
 pip install -r requirements.txt
 ```
 
-Or install libraries manually:
+**Main libraries used:**
+
+- numpy
+- pandas
+- scikit-learn
+- matplotlib
+- jupyter
+- pyarrow (for parquet support)
+
+## 🧩 Configuration (config.json)
+
+All dataset paths and filenames are managed centrally via `config.json`.
+
+**Example:**
+
+```json
+{
+  "paths": {
+    "data_raw": "data/raw"
+  },
+  "files": {
+    "train": "train_v2.csv",
+    "transactions": "transactions_v2.csv",
+    "user_logs": "user_logs_v2.csv",
+    "members": "members_v3.csv",
+    "sample_submission": "sample_submission_v2.csv"
+  }
+}
+```
+
+This makes the pipeline portable and easy to maintain.
+
+## 🧪 Running the Feature Engineering Pipeline
+
+The main preprocessing logic lives in:
+
+```
+src/data/preprocess.py
+```
+
+### ▶️ Run Feature Engineering
+
+From the project root:
 
 ```bash
-pip install numpy pandas matplotlib scikit-learn jupyter
+python -m src.data.preprocess
 ```
 
----
+### ✅ What this does:
 
-## 🧾 Export Installed Libraries
+- Loads datasets using `utils.py`
+- Cleans and processes:
+  - Member demographics
+  - Transaction history
+  - User activity logs (chunk-based processing)
+- Generates ML-ready features
+- Saves the final dataset to:
+  ```
+  data/processed/train_features.parquet
+  ```
 
-To export all installed libraries into a `requirements.txt` file:
-
-```bash
-pip freeze > requirements.txt
-```
-
-⚠️ Make sure the virtual environment is activated before running this command.
-
----
-
-## 🛑 Deactivate the Virtual Environment
-
-When finished:
-
-```bash
-deactivate
-```
-
----
-
-## 🚫 Git Ignore
-
-The virtual environment should not be committed to Git. Make sure `.gitignore` includes:
+You should see logs like:
 
 ```
-venv/
+INFO: Loaded 970960 rows for train
+INFO: Saved features to data/processed/train_features.parquet
+INFO: Final shape: (970960, 28)
 ```
 
----
+## 📊 Exploratory Data Analysis (EDA)
 
-## 🚀 Running the Project
+EDA notebooks are located in:
 
-1. Activate the virtual environment
-2. Start Jupyter Notebook:
+```
+notebooks/
+```
+
+### ▶️ Launch Jupyter
 
 ```bash
 jupyter notebook
 ```
 
-3. Open `notebooks/test.ipynb`
-4. Run the cells to explore the data and train models
+**Open:**
 
----
+- `eda.ipynb` → data exploration & insights
+- `test.ipynb` → experiments and validation
+
+## 🧠 Utilities Explained
+
+### `src/utils.py`
+
+- Loads configuration (`load_config`)
+- Loads raw datasets (`load_datasets`)
+- Keeps file access logic centralized
+
+### `src/data/preprocess.py`
+
+- End-to-end feature engineering
+- Date parsing, aggregation, leakage prevention
+- Produces final ML-ready dataset
+
+## 🚫 Git Ignore Rules
+
+The following should not be committed:
+
+- `venv/`
+- `data/raw/`
+- `__pycache__/`
+
+Processed features may be committed for reproducibility.
 
 ## 🧠 Technologies Used
 
-- Python
+- Python 3.9+
 - Pandas & NumPy
 - Scikit-learn
 - Matplotlib
 - Jupyter Notebook
-
----
-
-## 📌 Notes
-
-- Always activate the virtual environment before running the project
-- Keep `requirements.txt` updated after installing new packages
-- This setup ensures reproducibility across different machines
+- PyArrow (Parquet support)
