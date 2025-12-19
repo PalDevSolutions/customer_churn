@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 from pathlib import Path
-from utils import load_config, load_datasets
+from src.utils import load_config, load_datasets
 import logging
 
 # -------------------------
@@ -14,18 +14,20 @@ CUTOFF_DATE = pd.Timestamp("2017-03-31")
 LOGS_START_DATE = pd.Timestamp("2016-12-01")
 RECENT_START_DATE = pd.Timestamp("2017-03-01")
 
+
+# -------------------------
+# Load base datasets
+# -------------------------
 def load_initial_data():
     config = load_config()
 
     train, transactions, user_logs, members, _ = load_datasets(config)
 
-    # IMPORTANT: ignore user_logs here (we'll process it in chunks later)
+    # IMPORTANT: do not keep full user_logs in memory
     del user_logs
 
-    # Ensure sorting as required by task
-    transactions = transactions.sort_values(
-        ["msno", "transaction_date"]
-    )
+    # Sort transactions (required by task)
+    transactions = transactions.sort_values(["msno", "transaction_date"])
 
     logger.info(f"Loaded {len(train)} rows for train")
     logger.info(f"Loaded {len(members)} rows for members")
@@ -33,38 +35,60 @@ def load_initial_data():
 
     return config, train, members, transactions
 
+
 # -------------------------
 # process members_v3.csv
 # -------------------------
 def process_members(members):
     members = members.copy()
 
-    # Age cleaning
+    # Clean age
     members["bd"] = np.clip(members["bd"], 0, 100)
     members.loc[members["bd"] == 0, "bd"] = np.nan
 
     # Gender
     members["gender"] = members["gender"].fillna("unknown")
 
-    # Tenure
+    # Parse registration date
+    members["registration_init_time"] = pd.to_datetime(
+        members["registration_init_time"],
+        format="%Y%m%d",
+        errors="coerce",
+    )
+
+    # Tenure feature
     members["tenure_days"] = (
         CUTOFF_DATE - members["registration_init_time"]
     ).dt.days
 
-    # Age groups
+    # Age groups (categorical)
     members["age_group"] = pd.cut(
         members["bd"],
         bins=[0, 18, 35, 50, 100],
-        labels=["0-18", "19-35", "36-50", "51+"]
+        labels=["0-18", "19-35", "36-50", "51+"],
     )
 
     return members.set_index("msno")
+
 
 # -------------------------
 # process transactions_v2.csv
 # -------------------------
 def process_transactions(trans):
     trans = trans.copy()
+
+    # Parse dates
+    trans["transaction_date"] = pd.to_datetime(
+        trans["transaction_date"],
+        format="%Y%m%d",
+        errors="coerce",
+    )
+
+    trans["membership_expire_date"] = pd.to_datetime(
+        trans["membership_expire_date"],
+        format="%Y%m%d",
+        errors="coerce",
+    )
 
     # Leakage prevention
     trans = trans[
@@ -74,7 +98,7 @@ def process_transactions(trans):
     # Remove duplicates
     trans = trans.drop_duplicates(
         subset=["msno", "transaction_date"],
-        keep="last"
+        keep="last",
     )
 
     # Discounts
@@ -83,7 +107,7 @@ def process_transactions(trans):
     )
     trans["has_discount"] = (trans["discount_amount"] > 0).astype(int)
 
-    # Last transaction
+    # Last transaction per user
     last_trans = (
         trans.groupby("msno")
         .tail(1)
@@ -108,7 +132,7 @@ def process_transactions(trans):
         first_trans_date=("transaction_date", "min"),
     )
 
-    # Tenure
+    # Transaction tenure
     trans_agg["trans_tenure_days"] = (
         CUTOFF_DATE - trans_agg["first_trans_date"]
     ).dt.days
@@ -117,10 +141,14 @@ def process_transactions(trans):
 
     return pd.concat([last_trans, trans_agg], axis=1)
 
+
+# -------------------------
+# process user_logs_v2.csv (chunked)
+# -------------------------
 def process_user_logs(config, sample_msnos):
     base_dir = Path(__file__).resolve().parent.parent.parent
     data_raw = base_dir / config["paths"]["data_raw"]
-    logs_path = data_raw / "user_logs_v2.csv"
+    logs_path = data_raw / config["files"]["user_logs"]
 
     overall_agg = []
     recent_agg = []
@@ -128,11 +156,12 @@ def process_user_logs(config, sample_msnos):
     for chunk in pd.read_csv(
         logs_path,
         chunksize=1_000_000,
-        parse_dates=["date"]
+        parse_dates=["date"],
     ):
         chunk = chunk[chunk["msno"].isin(sample_msnos)]
         chunk = chunk[chunk["date"] >= LOGS_START_DATE]
 
+        # Cap listening time (24h max)
         chunk["total_secs"] = np.clip(chunk["total_secs"], 0, 86400)
 
         overall = chunk.groupby("msno").agg(
@@ -156,19 +185,25 @@ def process_user_logs(config, sample_msnos):
     recent_df = pd.concat(recent_agg).groupby("msno").sum()
 
     logs_features = overall_df.join(recent_df, how="left").fillna(0)
+
     logs_features["recent_secs_ratio"] = (
-        logs_features["recent_total_secs"] /
-        logs_features["total_secs_sum"].replace(0, np.nan)
+        logs_features["recent_total_secs"]
+        / logs_features["total_secs_sum"].replace(0, np.nan)
     ).fillna(0)
 
     return logs_features
 
+
+# -------------------------
+# Build final feature table
+# -------------------------
 def build_features():
     config, train, members, trans = load_initial_data()
 
     members_f = process_members(members)
     trans_f = process_transactions(trans)
 
+    # Sample users for logs (memory-safe)
     sample_msnos = train["msno"].sample(frac=0.1, random_state=42)
     logs_f = process_user_logs(config, sample_msnos)
 
@@ -179,8 +214,11 @@ def build_features():
         .join(logs_f, how="left")
     )
 
-    final_df = final_df.fillna(0)
+    # Fill numeric columns only
+    num_cols = final_df.select_dtypes(include=["number"]).columns
+    final_df[num_cols] = final_df[num_cols].fillna(0)
 
+    # Sanity check
     assert len(final_df) == len(train)
 
     output_path = Path("data/processed/train_features.parquet")
@@ -189,6 +227,7 @@ def build_features():
 
     logger.info(f"Saved features to {output_path}")
     logger.info(f"Final shape: {final_df.shape}")
+
 
 if __name__ == "__main__":
     build_features()
