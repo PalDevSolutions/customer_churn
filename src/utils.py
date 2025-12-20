@@ -3,6 +3,9 @@ from pathlib import Path
 import pandas as pd
 
 
+# -------------------------
+# Config Loader
+# -------------------------
 def load_config(config_path="config.json"):
     """
     Load configuration file and return it as a dictionary.
@@ -18,15 +21,12 @@ def load_config(config_path="config.json"):
     return config
 
 
-def load_datasets(config):
+# -------------------------
+# Raw Datasets Loader
+# -------------------------
+def load_raw_datasets(config):
     """
-    Load all datasets using paths defined in config.
-
-    Args:
-        config (dict): Loaded configuration
-
-    Returns:
-        tuple: train, transactions, user_logs, members, sample_submission
+    Load raw CSV datasets using config paths.
     """
     base_dir = Path(__file__).resolve().parent.parent
     data_raw = base_dir / config["paths"]["data_raw"]
@@ -40,3 +40,23 @@ def load_datasets(config):
     )
 
     return train, transactions, user_logs, members, sample_submission
+
+
+# -------------------------
+# Processed Features Loader
+# -------------------------
+def load_processed_features(config):
+    """
+    Load processed feature dataset (Parquet).
+    """
+    base_dir = Path(__file__).resolve().parent.parent
+    data_processed = base_dir / config["paths"]["data_processed"]
+
+    features_path = data_processed / config["files"]["train_features"]
+
+    if not features_path.exists():
+        raise FileNotFoundError(
+            f"Processed features not found at: {features_path}"
+        )
+
+    return pd.read_parquet(features_path)
