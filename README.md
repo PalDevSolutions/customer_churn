@@ -1,7 +1,10 @@
 # 📊 Customer Churn Prediction
 
 This project implements an end-to-end machine learning pipeline to predict customer churn using user demographics, transaction history, and usage behavior.
-The pipeline covers data preprocessing, feature engineering, baseline model training, and reusable inference artifacts, following clean, modular, and reproducible ML engineering practices.
+
+The repository follows real-world ML engineering best practices, including feature engineering, baseline modeling, cross-validation, reproducibility, and production-ready artifacts.
+
+---
 
 ## 📁 Project Structure
 
@@ -32,7 +35,8 @@ customer_churn/
 │   ├── data/
 │   │   └── preprocess.py       # Feature engineering pipeline
 │   └── models/
-│       └── train_baseline.py   # Baseline model training script
+│       ├── train_baseline.py   # Baseline model training
+│       └── cv_baseline.py      # Cross-validation pipeline
 │
 ├── config.json                 # Centralized configuration
 ├── requirements.txt            # Python dependencies
@@ -40,47 +44,43 @@ customer_churn/
 └── .gitignore
 ```
 
+---
+
 ## ⚙️ Environment Setup
 
-### 1️⃣ Create a Virtual Environment
+### Create Virtual Environment
 
 ```bash
 python -m venv venv
 ```
 
-### 2️⃣ Activate the Virtual Environment
+### Activate Environment
 
-**Windows (Git Bash / VS Code)**
+**Git Bash / VS Code**
 
 ```bash
 source venv/Scripts/activate
 ```
 
-**Windows (CMD)**
+**CMD**
 
-```cmd
+```bash
 venv\Scripts\activate
 ```
 
-**Windows (PowerShell)**
+**PowerShell**
 
-```powershell
+```bash
 .\venv\Scripts\Activate.ps1
 ```
 
-You should see:
-
-```
-(venv)
-```
-
-## 📦 Install Dependencies
+### 📦 Install Dependencies
 
 ```bash
 pip install -r requirements.txt
 ```
 
-**Main libraries used:**
+**Key libraries:**
 
 - numpy
 - pandas
@@ -90,9 +90,11 @@ pip install -r requirements.txt
 - jupyter
 - pyarrow
 
-## 🧩 Configuration (config.json)
+---
 
-All paths, filenames, and feature locations are managed centrally via `config.json`.
+## 🧩 Configuration
+
+All paths and filenames are managed centrally using `config.json`.
 
 ```json
 {
@@ -116,145 +118,161 @@ All paths, filenames, and feature locations are managed centrally via `config.js
 }
 ```
 
-**This design ensures:**
+This design ensures portability, reproducibility, and zero hardcoded paths.
 
-- No hardcoded paths
-- Easy portability
-- Clean separation between raw and processed data
+---
 
-## 🧪 Feature Engineering Pipeline
+## 🧪 Feature Engineering
 
-The feature engineering logic is implemented in:
+Feature engineering is implemented in:
 
 ```
 src/data/preprocess.py
 ```
 
-### ▶️ Run Feature Engineering
+### Run Feature Engineering
 
 ```bash
 python -m src.data.preprocess
 ```
 
-### ✅ What this step does
+**What This Step Does:**
 
-- Loads raw datasets using `utils.load_raw_datasets`
-- Cleans and processes:
-  - Member demographics
-  - Transaction history
-  - User activity logs (chunk-based processing)
+- Loads raw datasets
+- Cleans and validates demographic and transactional data
+- Processes user activity logs using chunked reading
 - Prevents data leakage using cutoff dates
-- Generates ML-ready numeric features
+- Produces ML-ready numeric features
 
-### 📦 Output
-
-Saved to:
+**Output:**
 
 ```
 data/processed/train_features.parquet
 ```
 
-**Example logs:**
+---
 
-```
-INFO - Loaded 970960 rows for train
-INFO - Saved features to data/processed/train_features.parquet
-INFO - Final shape: (970960, 28)
-```
+## 🤖 Baseline Model Training
 
-## 🤖 Training the Baseline Model
+Baseline model training is implemented using LightGBM.
 
-A baseline churn prediction model is trained using LightGBM on engineered behavioral features.
-
-### 📄 Training Script
+**Training Script:**
 
 ```
 src/models/train_baseline.py
 ```
 
-### ▶️ Run Model Training
-
-From the project root:
+### Run Training
 
 ```bash
 python -m src.models.train_baseline
 ```
 
-### ✅ What this script does
+**Training Pipeline:**
 
-- Loads processed features via `load_processed_features`
-- Handles missing values by data type
-- Removes unsupported and constant columns
-- Splits data into train / validation sets
-- Trains a LightGBM binary classifier
-- Applies early stopping
-- Evaluates performance
-- Saves trained artifacts
+1. Loads processed features
+2. Handles missing values by data type
+3. Removes unsupported and constant columns
+4. Splits data into training and validation sets
+5. Trains a LightGBM binary classifier
+6. Applies early stopping
+7. Evaluates performance
+8. Saves model artifacts
 
-## 📈 Baseline Model Results
+### 📈 Baseline Results
 
-**Typical output:**
+Typical results:
+
+- **Validation Log Loss:** ~0.130
+- **Validation AUC:** ~0.986
+
+This indicates strong probability calibration and excellent class separation.
+
+---
+
+## 🧪 Cross-Validation (Model Stability)
+
+To ensure robustness and generalization, 5-Fold Stratified Cross-Validation is applied.
+
+**Validation Script:**
 
 ```
-Validation Log Loss: 0.1301
-Validation AUC: 0.9857
+src/models/cv_baseline.py
+```
+
+### Run Cross-Validation
+
+```bash
+python -m src.models.cv_baseline
+```
+
+### Cross-Validation Results
+
+```
+========== CV Results ==========
+Mean Log Loss: 0.1294
+Std  Log Loss: 0.0004
+
+Mean AUC:      0.9854
+Std  AUC:      0.0002
 ```
 
 **Interpretation:**
 
-- Log Loss ≈ 0.13 → Strong probability calibration
-- AUC ≈ 0.99 → Excellent churn vs non-churn separation
+- Extremely low standard deviation across folds
+- Stable learning behavior
+- No evidence of overfitting
+- Model is suitable for production inference
 
-This represents a high-quality baseline model prior to hyperparameter tuning or time-based validation.
+---
 
 ## 📊 Feature Importance
 
-After training, feature importance is automatically generated and saved to:
+Feature importance is automatically saved to:
 
 ```
 models/feature_importance.png
 ```
 
-**Top predictive features include:**
+Common top features include:
 
 - Transaction tenure
 - Membership tenure
-- Last payment amount
 - Auto-renew behavior
 - Cancellation history
+- Payment amount patterns
 
-## 💾 Saved Model Format
+---
 
-The trained model is saved in LightGBM's native format:
+## 💾 Model Artifact
+
+The trained model is stored in LightGBM native format:
 
 ```
 models/baseline_lgb.txt
 ```
 
-**Why this format?**
+**Why This Format:**
 
-- Stable across LightGBM versions
+- Version-stable
 - Human-readable
 - Secure (no pickle execution)
-- Suitable for production deployment
+- Suitable for deployment
 
-## 🔮 Using the Model (Inference)
-
-Example: loading the trained model and generating predictions.
+### 🔮 Inference Example
 
 ```python
 import lightgbm as lgb
-import pandas as pd
 
 model = lgb.Booster(model_file="models/baseline_lgb.txt")
-
-# X_new must contain the same feature columns as training data
 y_pred = model.predict(X_new)
 ```
 
-`y_pred` represents the probability of churn for each user.
+`y_pred` represents churn probability per user.
 
-## 📊 Exploratory Data Analysis (EDA)
+---
+
+## 📊 Exploratory Data Analysis
 
 EDA notebooks are available in:
 
@@ -262,24 +280,25 @@ EDA notebooks are available in:
 notebooks/
 ```
 
-**Launch Jupyter:**
+Launch Jupyter:
 
 ```bash
 jupyter notebook
 ```
 
-- `eda.ipynb` → Data exploration & insights
-- `test.ipynb` → Experiments & validation checks
+---
 
 ## 🚫 Git Ignore Rules
 
-The following paths should not be committed:
+Ignored paths:
 
 - `venv/`
 - `data/raw/`
 - `__pycache__/`
 
-Processed features and trained models may be committed for reproducibility.
+Large processed datasets and models are tracked using Git LFS.
+
+---
 
 ## 🧠 Technologies Used
 
@@ -289,20 +308,25 @@ Processed features and trained models may be committed for reproducibility.
 - LightGBM
 - Matplotlib
 - Jupyter Notebook
-- PyArrow (Parquet)
+- PyArrow
+
+---
 
 ## 🚀 Next Steps
 
-- Time-based validation (production realism)
-- Feature enrichment
-- Hyperparameter tuning
-- Batch inference & deployment
+- Train final model on full dataset (`train_full.py`)
+- Batch prediction pipeline (`predict.py`)
+- Threshold optimization
+- API or dashboard deployment
 
-## ✅ Final Note
+---
 
-This repository follows real-world ML engineering practices, including:
+## ✅ Summary
+
+This repository demonstrates a production-oriented ML workflow with:
 
 - Config-driven pipelines
-- Clear separation of raw vs processed data
-- Reproducible training
-- Production-ready model artifacts
+- Feature leakage prevention
+- Robust cross-validation
+- Reproducible artifacts
+- Deployment-ready models
