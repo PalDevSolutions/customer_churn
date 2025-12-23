@@ -4,8 +4,6 @@ This project implements an end-to-end machine learning pipeline to predict custo
 
 The repository follows real-world ML engineering best practices, including feature engineering, baseline modeling, cross-validation, reproducibility, and production-ready artifacts.
 
----
-
 ## 📁 Project Structure
 
 ```
@@ -24,7 +22,8 @@ customer_churn/
 │
 ├── models/
 │   ├── baseline_lgb.txt        # Trained LightGBM model (native format)
-│   └── feature_importance.png  # Feature importance visualization
+│   ├── feature_importance.png  # Feature importance visualization
+│   └── predictions.csv         # Offline inference output
 │
 ├── notebooks/
 │   ├── eda.ipynb               # Exploratory Data Analysis
@@ -36,15 +35,14 @@ customer_churn/
 │   │   └── preprocess.py       # Feature engineering pipeline
 │   └── models/
 │       ├── train_baseline.py   # Baseline model training
-│       └── cv_baseline.py      # Cross-validation pipeline
+│       ├── cv_baseline.py      # Cross-validation pipeline
+│       └── predict.py          # Offline batch inference
 │
 ├── config.json                 # Centralized configuration
 ├── requirements.txt            # Python dependencies
 ├── README.md
 └── .gitignore
 ```
-
----
 
 ## ⚙️ Environment Setup
 
@@ -64,23 +62,23 @@ source venv/Scripts/activate
 
 **CMD**
 
-```bash
+```cmd
 venv\Scripts\activate
 ```
 
 **PowerShell**
 
-```bash
+```powershell
 .\venv\Scripts\Activate.ps1
 ```
 
-### 📦 Install Dependencies
+## 📦 Install Dependencies
 
 ```bash
 pip install -r requirements.txt
 ```
 
-**Key libraries:**
+Key libraries used:
 
 - numpy
 - pandas
@@ -89,8 +87,6 @@ pip install -r requirements.txt
 - matplotlib
 - jupyter
 - pyarrow
-
----
 
 ## 🧩 Configuration
 
@@ -120,15 +116,9 @@ All paths and filenames are managed centrally using `config.json`.
 
 This design ensures portability, reproducibility, and zero hardcoded paths.
 
----
-
 ## 🧪 Feature Engineering
 
-Feature engineering is implemented in:
-
-```
-src/data/preprocess.py
-```
+Feature engineering is implemented in: `src/data/preprocess.py`
 
 ### Run Feature Engineering
 
@@ -136,31 +126,25 @@ src/data/preprocess.py
 python -m src.data.preprocess
 ```
 
-**What This Step Does:**
+### What This Step Does
 
 - Loads raw datasets
-- Cleans and validates demographic and transactional data
-- Processes user activity logs using chunked reading
+- Cleans demographic and transactional data
+- Processes user activity logs using chunk-based reading
 - Prevents data leakage using cutoff dates
-- Produces ML-ready numeric features
+- Generates ML-ready numeric features
 
-**Output:**
+### Output
 
 ```
 data/processed/train_features.parquet
 ```
 
----
-
 ## 🤖 Baseline Model Training
 
 Baseline model training is implemented using LightGBM.
 
-**Training Script:**
-
-```
-src/models/train_baseline.py
-```
+**Training Script:** `src/models/train_baseline.py`
 
 ### Run Training
 
@@ -168,37 +152,29 @@ src/models/train_baseline.py
 python -m src.models.train_baseline
 ```
 
-**Training Pipeline:**
+### Training Pipeline
 
-1. Loads processed features
-2. Handles missing values by data type
-3. Removes unsupported and constant columns
-4. Splits data into training and validation sets
-5. Trains a LightGBM binary classifier
-6. Applies early stopping
-7. Evaluates performance
-8. Saves model artifacts
+- Loads processed features
+- Handles missing values by data type
+- Removes unsupported and constant columns
+- Splits data into training and validation sets
+- Trains a LightGBM binary classifier
+- Applies early stopping
+- Evaluates performance
+- Saves model artifacts
 
-### 📈 Baseline Results
-
-Typical results:
+### Baseline Results
 
 - **Validation Log Loss:** ~0.130
 - **Validation AUC:** ~0.986
 
-This indicates strong probability calibration and excellent class separation.
-
----
+This indicates strong probability calibration and excellent churn separation.
 
 ## 🧪 Cross-Validation (Model Stability)
 
-To ensure robustness and generalization, 5-Fold Stratified Cross-Validation is applied.
+To ensure robustness and generalization, 5-fold stratified cross-validation is applied.
 
-**Validation Script:**
-
-```
-src/models/cv_baseline.py
-```
+**Validation Script:** `src/models/cv_baseline.py`
 
 ### Run Cross-Validation
 
@@ -217,22 +193,15 @@ Mean AUC:      0.9854
 Std  AUC:      0.0002
 ```
 
-**Interpretation:**
+### Interpretation
 
-- Extremely low standard deviation across folds
-- Stable learning behavior
+- Extremely stable performance across folds
 - No evidence of overfitting
 - Model is suitable for production inference
 
----
-
 ## 📊 Feature Importance
 
-Feature importance is automatically saved to:
-
-```
-models/feature_importance.png
-```
+Feature importance is automatically saved to: `models/feature_importance.png`
 
 Common top features include:
 
@@ -242,43 +211,90 @@ Common top features include:
 - Cancellation history
 - Payment amount patterns
 
----
-
 ## 💾 Model Artifact
 
-The trained model is stored in LightGBM native format:
+The trained model is stored in LightGBM native format: `models/baseline_lgb.txt`
 
-```
-models/baseline_lgb.txt
-```
+### Why This Format
 
-**Why This Format:**
-
-- Version-stable
+- Stable across LightGBM versions
 - Human-readable
 - Secure (no pickle execution)
-- Suitable for deployment
+- Deployment-friendly
 
-### 🔮 Inference Example
+## 🔮 Offline Inference (Batch Prediction)
 
-```python
-import lightgbm as lgb
+The project includes an offline inference script that applies the trained model to processed features and generates churn predictions in batch mode.
 
-model = lgb.Booster(model_file="models/baseline_lgb.txt")
-y_pred = model.predict(X_new)
+This step simulates real-world production workflows where predictions are generated asynchronously or in bulk.
+
+### 📄 Inference Script
+
+`src/models/predict.py`
+
+### ▶️ How to Run Inference
+
+Ensure that:
+
+- Feature engineering has been completed
+- The baseline model has been trained
+
+Then run:
+
+```bash
+python -m src.models.predict
 ```
 
-`y_pred` represents churn probability per user.
+### 📥 Input Data
 
----
+The inference script automatically loads: `data/processed/train_features.parquet`
+
+No raw data is used at inference time.
+
+During execution, the script:
+
+- Drops non-feature columns (is_churn, msno)
+- Fills missing numeric values with 0
+- Aligns features with the trained model
+
+### 🤖 What the Script Does
+
+- Loads the trained LightGBM model
+- Loads processed feature data
+- Aligns features with model expectations
+- Generates churn probabilities
+- Applies a default decision threshold (0.5)
+- Saves results to disk
+
+### 📤 Output
+
+Predictions are saved to: `models/predictions.csv`
+
+The output contains:
+
+| Column            | Description                            |
+| ----------------- | -------------------------------------- |
+| churn_probability | Probability of churn                   |
+| churn_prediction  | Binary label (1 = churn, 0 = no churn) |
+
+Example output:
+
+```csv
+churn_probability,churn_prediction
+0.8377,1
+0.4161,0
+0.8516,1
+```
+
+### 📊 Interpretation
+
+- `churn_probability` reflects model confidence
+- `churn_prediction` is computed using: `churn_probability >= 0.5`
+- The threshold can be tuned based on business objectives
 
 ## 📊 Exploratory Data Analysis
 
-EDA notebooks are available in:
-
-```
-notebooks/
-```
+EDA notebooks are available in: `notebooks/`
 
 Launch Jupyter:
 
@@ -286,19 +302,20 @@ Launch Jupyter:
 jupyter notebook
 ```
 
----
+## 🚫 Git Ignore & LFS Rules
 
-## 🚫 Git Ignore Rules
-
-Ignored paths:
+### Ignored paths:
 
 - `venv/`
 - `data/raw/`
 - `__pycache__/`
 
-Large processed datasets and models are tracked using Git LFS.
+### Large files tracked using Git LFS:
 
----
+- `*.csv`
+- `*.parquet`
+- `*.png`
+- `models/*.txt`
 
 ## 🧠 Technologies Used
 
@@ -309,24 +326,3 @@ Large processed datasets and models are tracked using Git LFS.
 - Matplotlib
 - Jupyter Notebook
 - PyArrow
-
----
-
-## 🚀 Next Steps
-
-- Train final model on full dataset (`train_full.py`)
-- Batch prediction pipeline (`predict.py`)
-- Threshold optimization
-- API or dashboard deployment
-
----
-
-## ✅ Summary
-
-This repository demonstrates a production-oriented ML workflow with:
-
-- Config-driven pipelines
-- Feature leakage prevention
-- Robust cross-validation
-- Reproducible artifacts
-- Deployment-ready models
