@@ -15,11 +15,11 @@ else
     MLFLOW   := venv/bin/mlflow
 endif
 
-.PHONY: help install venv run run-prod \
+.PHONY: help install install-dev venv run run-prod \
         preprocess train cv predict pipeline \
         mlflow-ui \
         docker-build docker-up docker-down \
-        lint format clean
+        lint fmt fmtcheck test check clean
 
 # ── Default target ────────────────────────────
 help: ## Show available targets
@@ -28,10 +28,17 @@ help: ## Show available targets
 
 # ── Environment ───────────────────────────────
 venv: ## Create virtual environment
+ifeq ($(OS),Windows_NT)
 	python -m venv venv
+else
+	python3 -m venv venv
+endif
 
-install: ## Install all dependencies from requirements.txt
+install: ## Install runtime dependencies from requirements.txt
 	$(PIP) install -r requirements.txt
+
+install-dev: ## Install runtime + dev dependencies (ruff, pytest, httpx)
+	$(PIP) install -r requirements-dev.txt
 
 # ── API server ────────────────────────────────
 run: ## Start API server with hot-reload (development)
@@ -70,11 +77,19 @@ docker-down: ## Stop and remove containers
 	docker compose down
 
 # ── Code quality ──────────────────────────────
-lint: ## Lint source code with ruff
-	$(PYTHON) -m ruff check src/
+lint: ## Lint src/ and tests/ with ruff
+	$(PYTHON) -m ruff check src/ tests/
 
-format: ## Format source code with ruff
-	$(PYTHON) -m ruff format src/
+fmt: ## Auto-format src/ and tests/ with ruff
+	$(PYTHON) -m ruff format src/ tests/
+
+fmtcheck: ## Check formatting without writing changes (CI-safe)
+	$(PYTHON) -m ruff format --check src/ tests/
+
+test: ## Run the full test suite
+	$(PYTHON) -m pytest tests/ -v
+
+check: lint fmtcheck test ## Run all checks: lint → format → tests (CI gate)
 
 # ── Housekeeping ──────────────────────────────
 clean: ## Remove __pycache__ and .pyc files

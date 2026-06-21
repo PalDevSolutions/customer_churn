@@ -1,19 +1,14 @@
-import numpy as np
 import logging
-
-from sklearn.model_selection import StratifiedKFold
-from sklearn.metrics import log_loss, roc_auc_score
 
 import lightgbm as lgb
 import mlflow
+import numpy as np
+from sklearn.metrics import log_loss, roc_auc_score
+from sklearn.model_selection import StratifiedKFold
 
 from src.utils import load_config, load_processed_features
 
-
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(message)s"
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 
@@ -44,7 +39,7 @@ def run_cv() -> dict:
         "bagging_freq": 5,
         "is_unbalance": True,
         "verbosity": -1,
-        "seed": 42
+        "seed": 42,
     }
 
     skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
@@ -69,10 +64,7 @@ def run_cv() -> dict:
                 lgb_train,
                 num_boost_round=1000,
                 valid_sets=[lgb_valid],
-                callbacks=[
-                    lgb.early_stopping(stopping_rounds=50),
-                    lgb.log_evaluation(period=0)
-                ]
+                callbacks=[lgb.early_stopping(stopping_rounds=50), lgb.log_evaluation(period=0)],
             )
 
             y_pred = model.predict(X_valid)

@@ -9,15 +9,16 @@ version = "1.0.0"
 description = "End-to-end customer churn prediction ML service"
 requires-python = ">=3.9"
 dependencies = [
-    "numpy==1.26.4",
-    "pandas==2.2.1",
-    "scikit-learn==1.4.1",
-    "matplotlib==3.8.3",
+    "numpy>=1.26",
+    "pandas>=2.2",
+    "scikit-learn>=1.4",
+    "matplotlib>=3.8",
     "pyarrow",
     "lightgbm",
     "fastapi==0.111.0",
     "uvicorn[standard]==0.29.0",
-    "pydantic>=2.0.0,<2.10.0",
+    "pydantic>=2.0.0,<2.10.0; python_version == '3.9'",
+    "pydantic>=2.0.0; python_version >= '3.10'",
     "shap",
     "mlflow",
 ]
@@ -55,6 +56,7 @@ indent-style = "space"
 
 # ── Pytest ────────────────────────────────────
 [tool.pytest.ini_options]
-testpaths  = ["tests"]
+testpaths    = ["tests"]
 python_files = ["test_*.py"]
-addopts    = "-v"
+addopts      = "-v"
+pythonpath   = ["."]

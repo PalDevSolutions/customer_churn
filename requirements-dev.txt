@@ -1,0 +1,14 @@
+# Lean install for `make check` (lint + format + tests).
+# mlflow, scikit-learn, matplotlib, pyarrow are NOT needed — training scripts
+# are mocked in the test suite and never actually imported.
+# For the full ML runtime: pip install -r requirements.txt
+numpy>=1.26
+pandas>=2.2
+lightgbm
+fastapi==0.111.0
+pydantic>=2.0.0,<2.10.0; python_version == "3.9"
+pydantic>=2.0.0; python_version >= "3.10"
+shap
+ruff
+pytest
+httpx

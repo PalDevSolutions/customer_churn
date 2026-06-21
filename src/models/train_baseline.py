@@ -1,26 +1,21 @@
 import json
-import numpy as np
-from pathlib import Path
-from datetime import datetime, timezone
 import logging
-
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import log_loss, roc_auc_score
+from datetime import datetime, timezone
+from pathlib import Path
 
 import lightgbm as lgb
+import matplotlib
 import mlflow
 import mlflow.lightgbm
-import matplotlib
+from sklearn.metrics import log_loss, roc_auc_score
+from sklearn.model_selection import train_test_split
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 from src.utils import load_config, load_processed_features
 
-
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(message)s"
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 
@@ -69,7 +64,7 @@ def run_training() -> dict:
         "bagging_freq": 5,
         "is_unbalance": True,
         "verbosity": -1,
-        "seed": 42
+        "seed": 42,
     }
 
     mlflow.set_experiment("customer-churn")
@@ -85,10 +80,7 @@ def run_training() -> dict:
             num_boost_round=1000,
             valid_sets=[lgb_train, lgb_valid],
             valid_names=["train", "valid"],
-            callbacks=[
-                lgb.early_stopping(stopping_rounds=50),
-                lgb.log_evaluation(period=100)
-            ]
+            callbacks=[lgb.early_stopping(stopping_rounds=50), lgb.log_evaluation(period=100)],
         )
 
         y_pred = model.predict(X_valid)
