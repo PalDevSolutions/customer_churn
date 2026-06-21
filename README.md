@@ -1,328 +1,277 @@
-# 📊 Customer Churn Prediction
+# Customer Churn Prediction
 
-This project implements an end-to-end machine learning pipeline to predict customer churn using user demographics, transaction history, and usage behavior.
+End-to-end ML pipeline to predict customer churn using user demographics, transaction history, and usage behavior. Includes a FastAPI service layer for inference and pipeline management, containerized with Docker and deployable to Oracle Cloud.
 
-The repository follows real-world ML engineering best practices, including feature engineering, baseline modeling, cross-validation, reproducibility, and production-ready artifacts.
+---
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 customer_churn/
 │
 ├── data/
-│   ├── raw/                    # Original datasets (CSV) – ignored by Git
+│   ├── raw/                        # Original datasets (CSV) – ignored by Git
 │   │   ├── members_v3.csv
 │   │   ├── transactions_v2.csv
 │   │   ├── user_logs_v2.csv
 │   │   ├── train_v2.csv
 │   │   └── sample_submission_v2.csv
-│   │
-│   └── processed/              # Generated ML-ready features
-│       └── train_features.parquet
+│   └── processed/
+│       ├── train_features.parquet  # Generated ML-ready features
+│       └── predictions.db          # SQLite prediction log
 │
 ├── models/
-│   ├── baseline_lgb.txt        # Trained LightGBM model (native format)
-│   ├── feature_importance.png  # Feature importance visualization
-│   └── predictions.csv         # Offline inference output
+│   ├── baseline_lgb.txt            # Trained LightGBM model (native format)
+│   ├── model_meta.json             # Model metadata (version, AUC, trained_at)
+│   ├── feature_importance.png
+│   └── predictions.csv             # Offline batch inference output
 │
 ├── notebooks/
-│   ├── eda.ipynb               # Exploratory Data Analysis
-│   └── test.ipynb              # Experiments & validation
+│   ├── eda.ipynb
+│   └── test.ipynb
 │
 ├── src/
-│   ├── utils.py                # Config & dataset loaders
+│   ├── utils.py                    # Config & dataset loaders
 │   ├── data/
-│   │   └── preprocess.py       # Feature engineering pipeline
-│   └── models/
-│       ├── train_baseline.py   # Baseline model training
-│       ├── cv_baseline.py      # Cross-validation pipeline
-│       └── predict.py          # Offline batch inference
+│   │   └── preprocess.py           # Feature engineering pipeline
+│   ├── models/
+│   │   ├── train_baseline.py       # Baseline model training (MLflow tracked)
+│   │   ├── cv_baseline.py          # Cross-validation (MLflow tracked)
+│   │   └── predict.py              # Offline batch inference
+│   └── api/
+│       ├── app.py                  # FastAPI application + lifespan
+│       ├── schemas.py              # Pydantic request/response models
+│       ├── dependencies.py         # Model + SHAP explainer singletons
+│       ├── database.py             # SQLite prediction persistence
+│       └── routers/
+│           ├── health.py           # GET /health
+│           ├── model.py            # GET /model/info
+│           ├── pipeline.py         # POST /pipeline/preprocess|train|cv
+│           └── predict.py          # POST /predict/single|batch|explain
 │
-├── config.json                 # Centralized configuration
-├── requirements.txt            # Python dependencies
-├── README.md
-└── .gitignore
+├── docs/
+│   ├── api.md                      # Full API reference
+│   ├── deployment.md               # Docker & Oracle Cloud deployment guide
+│   └── changes.md                  # Implementation priority log
+│
+├── Makefile                        # Task runner (cross-platform)
+├── pyproject.toml                  # Project metadata, ruff, pytest config
+├── config.json                     # Centralized path & filename configuration
+├── requirements.txt                # Pinned Python dependencies
+├── Dockerfile
+├── docker-compose.yml
+└── deploy.sh                       # One-command Oracle Cloud deployment
 ```
 
-## ⚙️ Environment Setup
+---
 
-### Create Virtual Environment
+## Quick Start
 
 ```bash
-python -m venv venv
+# 1. Create virtual environment
+make venv
+
+# 2. Activate it
+source venv/Scripts/activate        # Git Bash / VS Code
+# or: .\venv\Scripts\Activate.ps1   # PowerShell
+
+# 3. Install dependencies
+make install
+
+# 4. Run the full ML pipeline
+make pipeline                       # preprocess + train
+
+# 5. Start the API
+make run
 ```
 
-### Activate Environment
+Open `http://localhost:8000/docs` for the Swagger UI.
 
-**Git Bash / VS Code**
+---
+
+## Make Targets
+
+Run `make help` to list all targets with descriptions.
+
+### Environment
+
+| Command | Description |
+|---|---|
+| `make venv` | Create virtual environment |
+| `make install` | Install all dependencies from `requirements.txt` |
+
+### API Server
+
+| Command | Description |
+|---|---|
+| `make run` | Start API with hot-reload (development) |
+| `make run-prod` | Start API without hot-reload (production-like) |
+
+### ML Pipeline
+
+| Command | Description |
+|---|---|
+| `make preprocess` | Feature engineering → `data/processed/train_features.parquet` |
+| `make train` | Train LightGBM model → `models/baseline_lgb.txt` |
+| `make cv` | 5-fold cross-validation |
+| `make predict` | Offline batch inference → `models/predictions.csv` |
+| `make pipeline` | `preprocess` + `train` in one shot |
+
+### MLflow
+
+| Command | Description |
+|---|---|
+| `make mlflow-ui` | Open experiment tracking UI at `http://localhost:5000` |
+
+### Docker
+
+| Command | Description |
+|---|---|
+| `make docker-build` | Build Docker image |
+| `make docker-up` | Build and start container |
+| `make docker-down` | Stop and remove containers |
+
+### Code Quality
+
+| Command | Description |
+|---|---|
+| `make lint` | Lint with ruff |
+| `make format` | Format with ruff |
+| `make clean` | Remove `__pycache__` and `.pyc` files |
+
+---
+
+## API Endpoints
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/health` | Liveness check |
+| `GET` | `/model/info` | Model metadata (version, AUC, trained_at) |
+| `POST` | `/pipeline/preprocess` | Run feature engineering (async job) |
+| `POST` | `/pipeline/train` | Train model + reload into memory (async job) |
+| `POST` | `/pipeline/cv` | Run cross-validation (async job) |
+| `GET` | `/pipeline/jobs/{id}` | Poll job status |
+| `POST` | `/predict/single` | Predict churn for one user (JSON features) |
+| `POST` | `/predict/batch` | Predict churn for all users in parquet file |
+| `POST` | `/predict/explain` | SHAP feature attribution for one user |
+
+See [docs/api.md](docs/api.md) for full request/response schemas and examples.
+
+---
+
+## Baseline Results
+
+| Metric | Value |
+|---|---|
+| Validation Log Loss | 0.130 |
+| Validation AUC | 0.986 |
+| CV Mean Log Loss | 0.1294 ± 0.0004 |
+| CV Mean AUC | 0.9854 ± 0.0002 |
+
+---
+
+## Docker
 
 ```bash
-source venv/Scripts/activate
+make docker-up     # build + start
+make docker-down   # stop
 ```
 
-**CMD**
+Data and models are volume-mounted — they persist outside the image and survive rebuilds.
 
-```cmd
-venv\Scripts\activate
-```
+See [docs/deployment.md](docs/deployment.md) for Oracle Cloud deployment.
 
-**PowerShell**
+---
 
-```powershell
-.\venv\Scripts\Activate.ps1
-```
+## MLflow Experiment Tracking
 
-## 📦 Install Dependencies
+Both training and cross-validation are tracked automatically. After running `make train` or `make cv`:
 
 ```bash
-pip install -r requirements.txt
+make mlflow-ui
+# Open http://localhost:5000
 ```
 
-Key libraries used:
+Each run logs: hyperparameters, `val_logloss`, `val_auc`, `num_trees`, the feature importance chart, and the model artifact.
 
-- numpy
-- pandas
-- scikit-learn
-- lightgbm
-- matplotlib
-- jupyter
-- pyarrow
+---
 
-## 🧩 Configuration
+## Prediction Persistence
 
-All paths and filenames are managed centrally using `config.json`.
+Every prediction made through the API is saved to `data/predictions.db` (SQLite):
+
+```
+predictions
+├── id           INTEGER  primary key
+├── timestamp    TEXT     UTC ISO-8601
+├── features     TEXT     JSON (single predict only)
+├── probability  REAL
+└── prediction   INTEGER  0 or 1
+```
+
+---
+
+## SHAP Explanations
+
+```bash
+curl -X POST http://localhost:8000/predict/explain \
+  -H "Content-Type: application/json" \
+  -d '{
+    "features": {"tenure_days": 1200, "last_is_auto_renew": 1},
+    "top_n": 5
+  }'
+```
 
 ```json
 {
-  "paths": {
-    "data_raw": "data/raw/",
-    "data_processed": "data/processed/",
-    "models": "models/"
-  },
-  "files": {
-    "train": "train_v2.csv",
-    "transactions": "transactions_v2.csv",
-    "user_logs": "user_logs_v2.csv",
-    "members": "members_v3.csv",
-    "sample_submission": "sample_submission_v2.csv",
-    "train_features": "train_features.parquet"
-  },
-  "dates": {
-    "transaction_date_format": "%Y%m%d",
-    "reference_date": "2017-03-31"
-  }
+  "probability": 0.082,
+  "churn_prediction": 0,
+  "top_features": [
+    { "feature": "trans_tenure_days", "impact": -0.4312 },
+    { "feature": "last_is_auto_renew", "impact": -0.2105 },
+    { "feature": "cancel_count",       "impact":  0.0871 }
+  ]
 }
 ```
 
-This design ensures portability, reproducibility, and zero hardcoded paths.
+Positive impact pushes toward churn; negative pushes away.
 
-## 🧪 Feature Engineering
+---
 
-Feature engineering is implemented in: `src/data/preprocess.py`
+## Configuration
 
-### Run Feature Engineering
+All paths and filenames are managed centrally in [config.json](config.json). No hardcoded paths anywhere in the codebase.
 
-```bash
-python -m src.data.preprocess
-```
+---
 
-### What This Step Does
+## Development
 
-- Loads raw datasets
-- Cleans demographic and transactional data
-- Processes user activity logs using chunk-based reading
-- Prevents data leakage using cutoff dates
-- Generates ML-ready numeric features
-
-### Output
-
-```
-data/processed/train_features.parquet
-```
-
-## 🤖 Baseline Model Training
-
-Baseline model training is implemented using LightGBM.
-
-**Training Script:** `src/models/train_baseline.py`
-
-### Run Training
+Install dev dependencies (ruff, pytest, httpx):
 
 ```bash
-python -m src.models.train_baseline
+pip install -e ".[dev]"
 ```
-
-### Training Pipeline
-
-- Loads processed features
-- Handles missing values by data type
-- Removes unsupported and constant columns
-- Splits data into training and validation sets
-- Trains a LightGBM binary classifier
-- Applies early stopping
-- Evaluates performance
-- Saves model artifacts
-
-### Baseline Results
-
-- **Validation Log Loss:** ~0.130
-- **Validation AUC:** ~0.986
-
-This indicates strong probability calibration and excellent churn separation.
-
-## 🧪 Cross-Validation (Model Stability)
-
-To ensure robustness and generalization, 5-fold stratified cross-validation is applied.
-
-**Validation Script:** `src/models/cv_baseline.py`
-
-### Run Cross-Validation
 
 ```bash
-python -m src.models.cv_baseline
+make lint      # ruff check src/
+make format    # ruff format src/
+make clean     # remove __pycache__ / .pyc
 ```
 
-### Cross-Validation Results
+Linting rules (configured in [pyproject.toml](pyproject.toml)): pycodestyle (E/W), pyflakes (F), isort (I), pyupgrade (UP).
 
-```
-========== CV Results ==========
-Mean Log Loss: 0.1294
-Std  Log Loss: 0.0004
+---
 
-Mean AUC:      0.9854
-Std  AUC:      0.0002
-```
+## Tech Stack
 
-### Interpretation
-
-- Extremely stable performance across folds
-- No evidence of overfitting
-- Model is suitable for production inference
-
-## 📊 Feature Importance
-
-Feature importance is automatically saved to: `models/feature_importance.png`
-
-Common top features include:
-
-- Transaction tenure
-- Membership tenure
-- Auto-renew behavior
-- Cancellation history
-- Payment amount patterns
-
-## 💾 Model Artifact
-
-The trained model is stored in LightGBM native format: `models/baseline_lgb.txt`
-
-### Why This Format
-
-- Stable across LightGBM versions
-- Human-readable
-- Secure (no pickle execution)
-- Deployment-friendly
-
-## 🔮 Offline Inference (Batch Prediction)
-
-The project includes an offline inference script that applies the trained model to processed features and generates churn predictions in batch mode.
-
-This step simulates real-world production workflows where predictions are generated asynchronously or in bulk.
-
-### 📄 Inference Script
-
-`src/models/predict.py`
-
-### ▶️ How to Run Inference
-
-Ensure that:
-
-- Feature engineering has been completed
-- The baseline model has been trained
-
-Then run:
-
-```bash
-python -m src.models.predict
-```
-
-### 📥 Input Data
-
-The inference script automatically loads: `data/processed/train_features.parquet`
-
-No raw data is used at inference time.
-
-During execution, the script:
-
-- Drops non-feature columns (is_churn, msno)
-- Fills missing numeric values with 0
-- Aligns features with the trained model
-
-### 🤖 What the Script Does
-
-- Loads the trained LightGBM model
-- Loads processed feature data
-- Aligns features with model expectations
-- Generates churn probabilities
-- Applies a default decision threshold (0.5)
-- Saves results to disk
-
-### 📤 Output
-
-Predictions are saved to: `models/predictions.csv`
-
-The output contains:
-
-| Column            | Description                            |
-| ----------------- | -------------------------------------- |
-| churn_probability | Probability of churn                   |
-| churn_prediction  | Binary label (1 = churn, 0 = no churn) |
-
-Example output:
-
-```csv
-churn_probability,churn_prediction
-0.8377,1
-0.4161,0
-0.8516,1
-```
-
-### 📊 Interpretation
-
-- `churn_probability` reflects model confidence
-- `churn_prediction` is computed using: `churn_probability >= 0.5`
-- The threshold can be tuned based on business objectives
-
-## 📊 Exploratory Data Analysis
-
-EDA notebooks are available in: `notebooks/`
-
-Launch Jupyter:
-
-```bash
-jupyter notebook
-```
-
-## 🚫 Git Ignore & LFS Rules
-
-### Ignored paths:
-
-- `venv/`
-- `data/raw/`
-- `__pycache__/`
-
-### Large files tracked using Git LFS:
-
-- `*.csv`
-- `*.parquet`
-- `*.png`
-- `models/*.txt`
-
-## 🧠 Technologies Used
-
-- Python 3.9+
-- Pandas & NumPy
-- Scikit-learn
-- LightGBM
-- Matplotlib
-- Jupyter Notebook
-- PyArrow
+| Layer | Tools |
+|---|---|
+| Data | Pandas, NumPy, PyArrow |
+| Model | LightGBM, scikit-learn |
+| Explainability | SHAP |
+| Experiment Tracking | MLflow |
+| API | FastAPI, Uvicorn, Pydantic |
+| Persistence | SQLite (stdlib) |
+| Container | Docker, Docker Compose |
+| Code Quality | Ruff |
+| Notebooks | Jupyter |

@@ -1,13 +1,17 @@
+import json
 import numpy as np
 from pathlib import Path
+from datetime import datetime, timezone
 import logging
 
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import log_loss, roc_auc_score
 
 import lightgbm as lgb
+import mlflow
+import mlflow.lightgbm
 import matplotlib
-matplotlib.use("Agg")  # headless — no display required
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 from src.utils import load_config, load_processed_features
@@ -68,41 +72,69 @@ def run_training() -> dict:
         "seed": 42
     }
 
-    lgb_train = lgb.Dataset(X_train, label=y_train)
-    lgb_valid = lgb.Dataset(X_valid, label=y_valid)
+    mlflow.set_experiment("customer-churn")
+    with mlflow.start_run(run_name="baseline-lgb"):
+        mlflow.log_params(params)
 
-    model = lgb.train(
-        params,
-        lgb_train,
-        num_boost_round=1000,
-        valid_sets=[lgb_train, lgb_valid],
-        valid_names=["train", "valid"],
-        callbacks=[
-            lgb.early_stopping(stopping_rounds=50),
-            lgb.log_evaluation(period=100)
-        ]
-    )
+        lgb_train = lgb.Dataset(X_train, label=y_train)
+        lgb_valid = lgb.Dataset(X_valid, label=y_valid)
 
-    y_pred = model.predict(X_valid)
-    val_logloss = log_loss(y_valid, y_pred)
-    val_auc = roc_auc_score(y_valid, y_pred)
+        model = lgb.train(
+            params,
+            lgb_train,
+            num_boost_round=1000,
+            valid_sets=[lgb_train, lgb_valid],
+            valid_names=["train", "valid"],
+            callbacks=[
+                lgb.early_stopping(stopping_rounds=50),
+                lgb.log_evaluation(period=100)
+            ]
+        )
 
-    logger.info(f"Validation Log Loss: {val_logloss:.4f}")
-    logger.info(f"Validation AUC: {val_auc:.4f}")
+        y_pred = model.predict(X_valid)
+        val_logloss = log_loss(y_valid, y_pred)
+        val_auc = roc_auc_score(y_valid, y_pred)
 
-    lgb.plot_importance(model, max_num_features=20)
-    plt.tight_layout()
-    plt.savefig(MODEL_DIR / "feature_importance.png")
-    plt.close()
+        logger.info(f"Validation Log Loss: {val_logloss:.4f}")
+        logger.info(f"Validation AUC: {val_auc:.4f}")
 
-    model.save_model(MODEL_DIR / "baseline_lgb.txt")
-    logger.info("Model saved to models/baseline_lgb.txt")
+        mlflow.log_metric("val_logloss", val_logloss)
+        mlflow.log_metric("val_auc", val_auc)
+        mlflow.log_metric("num_trees", model.num_trees())
+
+        importance_path = MODEL_DIR / "feature_importance.png"
+        lgb.plot_importance(model, max_num_features=20)
+        plt.tight_layout()
+        plt.savefig(importance_path)
+        plt.close()
+        mlflow.log_artifact(str(importance_path))
+
+        model.save_model(MODEL_DIR / "baseline_lgb.txt")
+        mlflow.lightgbm.log_model(model, "lgb-model")
+        logger.info("Model saved to models/baseline_lgb.txt")
+
+        run_id = mlflow.active_run().info.run_id
+
+    meta = {
+        "model_name": "customer-churn-lgb",
+        "version": "1.0.0",
+        "trained_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S"),
+        "val_logloss": round(val_logloss, 4),
+        "val_auc": round(val_auc, 4),
+        "num_features": X.shape[1],
+        "num_trees": model.num_trees(),
+        "mlflow_run_id": run_id,
+    }
+    with open(MODEL_DIR / "model_meta.json", "w") as f:
+        json.dump(meta, f, indent=2)
+    logger.info("Model metadata saved to models/model_meta.json")
 
     return {
         "val_logloss": round(val_logloss, 4),
         "val_auc": round(val_auc, 4),
         "num_features": X.shape[1],
         "num_trees": model.num_trees(),
+        "mlflow_run_id": run_id,
     }
 
 
