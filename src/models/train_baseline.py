@@ -4,14 +4,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import lightgbm as lgb
-import matplotlib
-import mlflow
-import mlflow.lightgbm
-from sklearn.metrics import log_loss, roc_auc_score
-from sklearn.model_selection import train_test_split
-
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
 
 from src.utils import load_config, load_processed_features
 
@@ -20,6 +12,15 @@ logger = logging.getLogger(__name__)
 
 
 def run_training() -> dict:
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    import mlflow
+    import mlflow.lightgbm
+    from sklearn.metrics import log_loss, roc_auc_score
+    from sklearn.model_selection import train_test_split
+
     config = load_config()
 
     MODEL_DIR = Path(config["paths"]["models"])

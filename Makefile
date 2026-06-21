@@ -15,7 +15,7 @@ else
     MLFLOW   := venv/bin/mlflow
 endif
 
-.PHONY: help install install-dev venv run run-prod \
+.PHONY: help install install-ml install-all venv run run-prod \
         preprocess train cv predict pipeline \
         mlflow-ui \
         docker-build docker-up docker-down \
@@ -34,11 +34,14 @@ else
 	python3 -m venv venv
 endif
 
-install: ## Install runtime dependencies from requirements.txt
-	$(PIP) install -r requirements.txt
+install: ## Install core API deps + dev tools via pyproject.toml (for make check)
+	$(PIP) install -e ".[dev]"
 
-install-dev: ## Install runtime + dev dependencies (ruff, pytest, httpx)
-	$(PIP) install -r requirements-dev.txt
+install-ml: ## Install ML training deps (scikit-learn, mlflow, matplotlib, pyarrow)
+	$(PIP) install -e ".[ml]"
+
+install-all: ## Install everything — core + dev + ML (full local dev)
+	$(PIP) install -e ".[all]"
 
 # ── API server ────────────────────────────────
 run: ## Start API server with hot-reload (development)

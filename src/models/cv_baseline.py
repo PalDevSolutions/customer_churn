@@ -1,10 +1,7 @@
 import logging
 
-import lightgbm as lgb
-import mlflow
 import numpy as np
-from sklearn.metrics import log_loss, roc_auc_score
-from sklearn.model_selection import StratifiedKFold
+import lightgbm as lgb
 
 from src.utils import load_config, load_processed_features
 
@@ -13,6 +10,10 @@ logger = logging.getLogger(__name__)
 
 
 def run_cv() -> dict:
+    import mlflow
+    from sklearn.metrics import log_loss, roc_auc_score
+    from sklearn.model_selection import StratifiedKFold
+
     config = load_config()
 
     df = load_processed_features(config)
