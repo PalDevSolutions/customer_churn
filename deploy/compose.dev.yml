@@ -10,7 +10,8 @@ services:
       - ../data:/app/data  # processed features and predictions DB
       - ../models:/app/models
     env_file:
-      - .env.dev
+      - path: .env.dev
+        required: false
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
