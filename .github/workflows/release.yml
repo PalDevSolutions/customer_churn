@@ -1,0 +1,118 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version tag (e.g. v1.2.3)"
+        required: true
+        default: "manual-test"
+      deploy:
+        description: "Deploy to VPS after build?"
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  # ── 1. Build Docker image and push to GHCR ───────────────────────────────
+  build-and-push:
+    runs-on: ubuntu-latest
+    outputs:
+      image_tag: ${{ steps.meta.outputs.image_tag }}
+      image_latest: ${{ steps.meta.outputs.image_latest }}
+      version: ${{ steps.meta.outputs.version }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Resolve version and image tags
+        id: meta
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION="${GITHUB_REF#refs/tags/}"
+          fi
+          REPO_LOWER="${GITHUB_REPOSITORY,,}"
+          echo "image_tag=ghcr.io/${REPO_LOWER}:${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "image_latest=ghcr.io/${REPO_LOWER}:latest"  >> "$GITHUB_OUTPUT"
+          echo "version=${VERSION}"                          >> "$GITHUB_OUTPUT"
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ steps.meta.outputs.image_tag }}
+            ${{ steps.meta.outputs.image_latest }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ── 2. Deploy to production VPS ──────────────────────────────────────────
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    if: github.event_name == 'push' || github.event.inputs.deploy == 'true'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Copy deploy files to VPS
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.SSH_PORT }}
+          source: "deploy/"
+          target: "/opt/customer-churn/prod"
+          strip_components: 1
+
+      - name: Deploy to production VPS
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.SSH_PORT }}
+          script: |
+            set -euo pipefail
+
+            export VERSION="${{ needs.build-and-push.outputs.version }}"
+            export IMAGE_TAG="${{ needs.build-and-push.outputs.image_tag }}"
+            export GHCR_PAT="${{ secrets.GHCR_PAT }}"
+            export GHCR_USER="${{ github.actor }}"
+
+            APP_DIR="/opt/customer-churn/prod"
+            mkdir -p "$APP_DIR"
+            mkdir -p /mnt/customer-churn/data/processed
+            mkdir -p /mnt/customer-churn/models
+
+            # Write production env file from secret
+            cat > "$APP_DIR/.env" << 'ENV_EOF'
+            ${{ secrets.PROD_ENV_FILE }}
+            ENV_EOF
+
+            cd "$APP_DIR"
+            chmod +x deploy-prod.sh
+            ./deploy-prod.sh "$VERSION"

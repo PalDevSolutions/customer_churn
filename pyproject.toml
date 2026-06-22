@@ -1,0 +1,77 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+# Tell setuptools where to find the src package
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*"]
+
+# ── Project metadata ──────────────────────────
+[project]
+name = "customer-churn"
+version = "1.0.0"
+description = "End-to-end customer churn prediction ML service"
+requires-python = ">=3.9"
+
+# Core API runtime — what the inference server needs
+dependencies = [
+    "numpy>=1.26",
+    "pandas>=2.2",
+    "lightgbm",
+    "fastapi==0.111.0",
+    "uvicorn[standard]==0.29.0",
+    "pydantic>=2.0.0,<2.10.0; python_version == '3.9'",
+    "pydantic>=2.0.0; python_version >= '3.10'",
+    "shap",
+]
+
+[project.optional-dependencies]
+# Lint + test tools — used by `make check` and CI
+dev = [
+    "ruff",
+    "pytest",
+    "httpx",
+]
+# ML training pipeline — not needed for inference
+ml = [
+    "scikit-learn>=1.4",
+    "matplotlib>=3.8",
+    "pyarrow",
+    "mlflow",
+]
+# Everything — local full-dev setup
+all = [
+    "customer-churn[dev,ml]",
+]
+
+# ── Ruff (linter + formatter) ─────────────────
+[tool.ruff]
+line-length = 100
+target-version = "py39"
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "UP",  # pyupgrade — flag syntax that can be modernised
+]
+ignore = [
+    "E501",  # line too long — handled by formatter
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["src"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+# ── Pytest ────────────────────────────────────
+[tool.pytest.ini_options]
+testpaths    = ["tests"]
+python_files = ["test_*.py"]
+addopts      = "-v"
+pythonpath   = ["."]

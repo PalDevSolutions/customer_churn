@@ -1,8 +1,10 @@
-import pandas as pd
-import numpy as np
-from pathlib import Path
-from src.utils import load_config, load_datasets
 import logging
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+
+from src.utils import load_config, load_raw_datasets
 
 # -------------------------
 # Setup
@@ -21,7 +23,7 @@ RECENT_START_DATE = pd.Timestamp("2017-03-01")
 def load_initial_data():
     config = load_config()
 
-    train, transactions, user_logs, members, _ = load_datasets(config)
+    train, transactions, user_logs, members, _ = load_raw_datasets(config)
 
     # IMPORTANT: do not keep full user_logs in memory
     del user_logs
@@ -57,9 +59,7 @@ def process_members(members):
     )
 
     # Tenure feature
-    members["tenure_days"] = (
-        CUTOFF_DATE - members["registration_init_time"]
-    ).dt.days
+    members["tenure_days"] = (CUTOFF_DATE - members["registration_init_time"]).dt.days
 
     # Age groups (categorical)
     members["age_group"] = pd.cut(
@@ -91,9 +91,7 @@ def process_transactions(trans):
     )
 
     # Leakage prevention
-    trans = trans[
-        trans["transaction_date"] <= trans["membership_expire_date"]
-    ]
+    trans = trans[trans["transaction_date"] <= trans["membership_expire_date"]]
 
     # Remove duplicates
     trans = trans.drop_duplicates(
@@ -102,17 +100,11 @@ def process_transactions(trans):
     )
 
     # Discounts
-    trans["discount_amount"] = (
-        trans["plan_list_price"] - trans["actual_amount_paid"]
-    )
+    trans["discount_amount"] = trans["plan_list_price"] - trans["actual_amount_paid"]
     trans["has_discount"] = (trans["discount_amount"] > 0).astype(int)
 
     # Last transaction per user
-    last_trans = (
-        trans.groupby("msno")
-        .tail(1)
-        .set_index("msno")
-    )[
+    last_trans = (trans.groupby("msno").tail(1).set_index("msno"))[
         [
             "is_auto_renew",
             "is_cancel",
@@ -133,9 +125,7 @@ def process_transactions(trans):
     )
 
     # Transaction tenure
-    trans_agg["trans_tenure_days"] = (
-        CUTOFF_DATE - trans_agg["first_trans_date"]
-    ).dt.days
+    trans_agg["trans_tenure_days"] = (CUTOFF_DATE - trans_agg["first_trans_date"]).dt.days
 
     trans_agg = trans_agg.drop(columns="first_trans_date")
 
@@ -174,8 +164,10 @@ def process_user_logs(config, sample_msnos):
             total_secs_sum=("total_secs", "sum"),
         )
 
-        recent = chunk[chunk["date"] >= RECENT_START_DATE].groupby("msno").agg(
-            recent_total_secs=("total_secs", "sum")
+        recent = (
+            chunk[chunk["date"] >= RECENT_START_DATE]
+            .groupby("msno")
+            .agg(recent_total_secs=("total_secs", "sum"))
         )
 
         overall_agg.append(overall)
@@ -187,8 +179,7 @@ def process_user_logs(config, sample_msnos):
     logs_features = overall_df.join(recent_df, how="left").fillna(0)
 
     logs_features["recent_secs_ratio"] = (
-        logs_features["recent_total_secs"]
-        / logs_features["total_secs_sum"].replace(0, np.nan)
+        logs_features["recent_total_secs"] / logs_features["total_secs_sum"].replace(0, np.nan)
     ).fillna(0)
 
     return logs_features

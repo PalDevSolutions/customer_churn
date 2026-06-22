@@ -1,19 +1,14 @@
 import logging
 from pathlib import Path
 
-import pandas as pd
 import lightgbm as lgb
 
 from src.utils import load_config, load_processed_features
 
-
 # -------------------------
 # Setup
 # -------------------------
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(message)s"
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 
@@ -65,9 +60,7 @@ df["churn_prediction"] = (df["churn_probability"] >= 0.5).astype(int)
 # -------------------------
 # Save results
 # -------------------------
-df[["churn_probability", "churn_prediction"]].to_csv(
-    OUTPUT_PATH, index=False
-)
+df[["churn_probability", "churn_prediction"]].to_csv(OUTPUT_PATH, index=False)
 
 logger.info(f"Predictions saved to {OUTPUT_PATH}")
 logger.info("Inference completed.")

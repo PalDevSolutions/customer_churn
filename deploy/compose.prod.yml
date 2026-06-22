@@ -1,0 +1,15 @@
+services:
+  api:
+    image: ${IMAGE_TAG:-ghcr.io/your-org/customer-churn:latest}
+    ports:
+      - "8000:8000"
+    volumes:
+      - /mnt/customer-churn/data:/app/data    # persistent data volume on host
+      - /mnt/customer-churn/models:/app/models
+    env_file:
+      - .env
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      retries: 3
