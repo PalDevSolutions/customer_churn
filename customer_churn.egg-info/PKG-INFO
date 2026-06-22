@@ -1,0 +1,24 @@
+Metadata-Version: 2.4
+Name: customer-churn
+Version: 1.0.0
+Summary: End-to-end customer churn prediction ML service
+Requires-Python: >=3.9
+Requires-Dist: numpy>=1.26
+Requires-Dist: pandas>=2.2
+Requires-Dist: lightgbm
+Requires-Dist: fastapi==0.111.0
+Requires-Dist: uvicorn[standard]==0.29.0
+Requires-Dist: pydantic<2.10.0,>=2.0.0; python_version == "3.9"
+Requires-Dist: pydantic>=2.0.0; python_version >= "3.10"
+Requires-Dist: shap
+Provides-Extra: dev
+Requires-Dist: ruff; extra == "dev"
+Requires-Dist: pytest; extra == "dev"
+Requires-Dist: httpx; extra == "dev"
+Provides-Extra: ml
+Requires-Dist: scikit-learn>=1.4; extra == "ml"
+Requires-Dist: matplotlib>=3.8; extra == "ml"
+Requires-Dist: pyarrow; extra == "ml"
+Requires-Dist: mlflow; extra == "ml"
+Provides-Extra: all
+Requires-Dist: customer-churn[dev,ml]; extra == "all"

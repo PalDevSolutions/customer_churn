@@ -42,6 +42,7 @@ def save_prediction(
     conn.close()
 
 
+
 def save_predictions_bulk(rows: List[Tuple]) -> None:
     """rows: list of (timestamp, features_json_or_none, probability, prediction)"""
     conn = sqlite3.connect(str(DB_PATH))

@@ -1,4 +1,7 @@
 venv/
 __pycache__/
-
 notebooks/
+mlruns/
+data/predictions.db
+
+venv-windows/

@@ -31,13 +31,14 @@ def _submit(fn, *args) -> JobResponse:
 @router.post("/preprocess", response_model=JobResponse)
 def preprocess():
     from src.data.preprocess import build_features
+
     return _submit(build_features)
 
 
 @router.post("/train", response_model=JobResponse)
 def train():
-    from src.models.train_baseline import run_training
     from src.api.dependencies import reload_explainer, reload_model
+    from src.models.train_baseline import run_training
 
     def _train_and_reload():
         result = run_training()
@@ -51,6 +52,7 @@ def train():
 @router.post("/cv", response_model=JobResponse)
 def cv():
     from src.models.cv_baseline import run_cv
+
     return _submit(run_cv)
 
 

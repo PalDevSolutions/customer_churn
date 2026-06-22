@@ -5,8 +5,8 @@ from fastapi import FastAPI
 
 from src.api.database import init_db
 from src.api.dependencies import reload_model
-from src.api.routers import health, pipeline, predict
-from src.api.routers import model
+from src.api.routers import health, model, pipeline, predict
+
 
 logging.basicConfig(
     level=logging.INFO,

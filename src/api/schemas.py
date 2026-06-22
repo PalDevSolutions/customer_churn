@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from pydantic import BaseModel, ConfigDict
 
@@ -14,12 +14,12 @@ class JobStatus(str, Enum):
 class JobResponse(BaseModel):
     job_id: str
     status: JobStatus
-    result: Optional[Dict[str, Any]] = None
+    result: Optional[dict[str, Any]] = None
     error: Optional[str] = None
 
 
 class SinglePredictRequest(BaseModel):
-    features: Dict[str, float]
+    features: dict[str, float]
 
 
 class SinglePredictResponse(BaseModel):
@@ -29,7 +29,7 @@ class SinglePredictResponse(BaseModel):
 
 class BatchPredictResponse(BaseModel):
     count: int
-    predictions: List[Dict[str, float]]
+    predictions: list[dict[str, float]]
 
 
 class ModelInfo(BaseModel):
@@ -51,11 +51,11 @@ class FeatureImpact(BaseModel):
 
 
 class ExplainRequest(BaseModel):
-    features: Dict[str, float]
+    features: dict[str, float]
     top_n: int = 10
 
 
 class ExplainResponse(BaseModel):
     probability: float
     churn_prediction: int
-    top_features: List[FeatureImpact]
+    top_features: list[FeatureImpact]
