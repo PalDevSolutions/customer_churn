@@ -2,7 +2,7 @@ import json
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import Optional
 
 DB_PATH = Path("data/predictions.db")
 
@@ -42,8 +42,7 @@ def save_prediction(
     conn.close()
 
 
-
-def save_predictions_bulk(rows: List[Tuple]) -> None:
+def save_predictions_bulk(rows: list[tuple]) -> None:
     """rows: list of (timestamp, features_json_or_none, probability, prediction)"""
     conn = sqlite3.connect(str(DB_PATH))
     conn.executemany(

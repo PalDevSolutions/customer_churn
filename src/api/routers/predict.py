@@ -1,6 +1,5 @@
 import threading
 from datetime import datetime, timezone
-from typing import List
 
 import lightgbm as lgb
 import pandas as pd
@@ -56,8 +55,7 @@ def predict_batch(model: lgb.Booster = Depends(get_model)):
     threading.Thread(target=save_predictions_bulk, args=(rows,), daemon=True).start()
 
     predictions = [
-        {"churn_probability": float(p), "churn_prediction": float(int(p >= 0.5))}
-        for p in probs
+        {"churn_probability": float(p), "churn_prediction": float(int(p >= 0.5))} for p in probs
     ]
 
     return BatchPredictResponse(
@@ -81,11 +79,7 @@ def predict_explain(
     shap_result = explainer.shap_values(df)
 
     # Handle both old (list per class) and new (single array) SHAP output formats
-    shap_vals = (
-        shap_result[1][0]
-        if isinstance(shap_result, list)
-        else shap_result[0]
-    )
+    shap_vals = shap_result[1][0] if isinstance(shap_result, list) else shap_result[0]
 
     impacts = sorted(
         zip(expected, shap_vals),
@@ -94,8 +88,7 @@ def predict_explain(
     )
 
     top_features = [
-        FeatureImpact(feature=f, impact=round(float(v), 4))
-        for f, v in impacts[: request.top_n]
+        FeatureImpact(feature=f, impact=round(float(v), 4)) for f, v in impacts[: request.top_n]
     ]
 
     return ExplainResponse(
