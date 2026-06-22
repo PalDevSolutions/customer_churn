@@ -4,4 +4,4 @@ notebooks/
 mlruns/
 data/predictions.db
 
-venv-windows/
+venv-windows/scripts/*.key

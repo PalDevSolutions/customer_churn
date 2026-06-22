@@ -1,7 +1,7 @@
 import logging
 
-import numpy as np
 import lightgbm as lgb
+import numpy as np
 
 from src.utils import load_config, load_processed_features
 

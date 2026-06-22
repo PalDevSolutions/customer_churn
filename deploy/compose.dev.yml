@@ -1,0 +1,18 @@
+services:
+  api:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    image: customer-churn-api:dev
+    ports:
+      - "8001:8000"        # dev runs on 8001 to avoid clashing with prod
+    volumes:
+      - ../data:/app/data  # processed features and predictions DB
+      - ../models:/app/models
+    env_file:
+      - .env.dev
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      retries: 3
