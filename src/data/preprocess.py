@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 from pathlib import Path
-from src.utils import load_config, load_datasets
+from src.utils import load_config, load_raw_datasets
 import logging
 
 # -------------------------
@@ -21,7 +21,7 @@ RECENT_START_DATE = pd.Timestamp("2017-03-01")
 def load_initial_data():
     config = load_config()
 
-    train, transactions, user_logs, members, _ = load_datasets(config)
+    train, transactions, user_logs, members, _ = load_raw_datasets(config)
 
     # IMPORTANT: do not keep full user_logs in memory
     del user_logs
