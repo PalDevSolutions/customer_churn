@@ -1,5 +1,6 @@
 import threading
 from datetime import datetime, timezone
+from typing import List
 
 import lightgbm as lgb
 import pandas as pd
@@ -50,12 +51,19 @@ def predict_batch(model: lgb.Booster = Depends(get_model)):
 
     ts = datetime.now(timezone.utc).isoformat()
     rows = [(ts, None, float(p), int(p >= 0.5)) for p in probs]
+
+    # Bulk DB write in background — avoids blocking the response for large datasets
     threading.Thread(target=save_predictions_bulk, args=(rows,), daemon=True).start()
 
     predictions = [
-        {"churn_probability": float(p), "churn_prediction": float(int(p >= 0.5))} for p in probs
+        {"churn_probability": float(p), "churn_prediction": float(int(p >= 0.5))}
+        for p in probs
     ]
-    return BatchPredictResponse(count=len(predictions), predictions=predictions)
+
+    return BatchPredictResponse(
+        count=len(predictions),
+        predictions=predictions,
+    )
 
 
 @router.post("/explain", response_model=ExplainResponse)
@@ -71,15 +79,23 @@ def predict_explain(
     pred = int(prob >= 0.5)
 
     shap_result = explainer.shap_values(df)
-    shap_vals = shap_result[1][0] if isinstance(shap_result, list) else shap_result[0]
+
+    # Handle both old (list per class) and new (single array) SHAP output formats
+    shap_vals = (
+        shap_result[1][0]
+        if isinstance(shap_result, list)
+        else shap_result[0]
+    )
 
     impacts = sorted(
         zip(expected, shap_vals),
         key=lambda x: abs(x[1]),
         reverse=True,
     )
+
     top_features = [
-        FeatureImpact(feature=f, impact=round(float(v), 4)) for f, v in impacts[: request.top_n]
+        FeatureImpact(feature=f, impact=round(float(v), 4))
+        for f, v in impacts[: request.top_n]
     ]
 
     return ExplainResponse(

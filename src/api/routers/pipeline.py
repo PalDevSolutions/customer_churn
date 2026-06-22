@@ -7,7 +7,7 @@ from src.api.schemas import JobResponse, JobStatus
 
 router = APIRouter(prefix="/pipeline")
 
-_jobs: dict = {}
+_jobs: dict[str, JobResponse] = {}
 
 
 def _run_job(job_id: str, fn, *args) -> None:

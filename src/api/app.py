@@ -7,6 +7,7 @@ from src.api.database import init_db
 from src.api.dependencies import reload_model
 from src.api.routers import health, model, pipeline, predict
 
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(levelname)s - %(message)s",

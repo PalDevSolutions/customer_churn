@@ -30,7 +30,6 @@ def get_explainer():
         raise RuntimeError("Model not loaded — run POST /pipeline/train first")
     if _explainer is None:
         import shap
-
         _explainer = shap.TreeExplainer(_model)
     return _explainer
 
