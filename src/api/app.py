@@ -22,7 +22,9 @@ async def lifespan(app: FastAPI):
         reload_model()
         logger.info("Model loaded successfully at startup")
     except Exception as e:
-        logger.warning(f"Model not loaded at startup ({type(e).__name__}: {e}) — run POST /pipeline/train first")
+        logger.warning(
+            f"Model not loaded at startup ({type(e).__name__}: {e}) — run POST /pipeline/train first"
+        )
     yield
 
 
